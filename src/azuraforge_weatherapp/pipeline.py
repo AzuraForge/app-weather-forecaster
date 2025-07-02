@@ -13,7 +13,6 @@ from azuraforge_learner import Sequential, LSTM, Linear, TimeSeriesPipeline
 def get_default_config() -> Dict[str, Any]:
     """Eklentinin varsayılan YAML konfigürasyonunu yükler."""
     try:
-        # 'importlib.resources' kullanarak paketin içindeki dosyaya güvenli erişim
         with resources.open_text("azuraforge_weatherapp.config", "weather_forecaster_config.yml") as f:
             return yaml.safe_load(f)
     except Exception as e:
@@ -24,32 +23,51 @@ def get_default_config() -> Dict[str, Any]:
 class WeatherForecastPipeline(TimeSeriesPipeline):
     """
     Open-Meteo API'sinden alınan hava durumu verileriyle sıcaklık tahmini yapar.
-    'TimeSeriesPipeline' temel sınıfından miras alarak birçok standart adımı otomatikleştirir.
     """
     def __init__(self, config: Dict[str, Any]):
-        # Temel sınıfın __init__'ini çağırarak self.config ve self.logger'ı ayarla
         super().__init__(config)
         self.logger.info("WeatherForecastPipeline (Eklenti) başarıyla başlatıldı.")
 
     def _load_data_from_source(self) -> pd.DataFrame:
         """
         Open-Meteo API'sinden geçmiş hava durumu verilerini çeker.
-        Bu metod sadece veri çekme işini yapar, önbellekleme (caching) bu metodun dışındadır.
         """
         params = self.config.get("data_sourcing", {})
         self.logger.info(f"'_load_data_from_source' çağrıldı. Parametreler: {params}")
 
+        # === DÜZELTME BAŞLANGICI ===
+        # 'hourly_vars' parametresinin bir liste olduğundan emin olalım.
+        # Eğer config'den string olarak gelirse (eski bir kalıntı), onu listeye çevirelim.
+        hourly_vars = params.get("hourly_vars", [])
+        if isinstance(hourly_vars, str):
+            hourly_vars = [var.strip() for var in hourly_vars.split(',')]
+        
+        # Open-Meteo'nun beklediği format: "temperature_2m,precipitation,..."
+        hourly_vars_str = ",".join(hourly_vars)
+        # === DÜZELTME SONU ===
+        
         api_url = "https://archive-api.open-meteo.com/v1/archive"
         api_params = {
             "latitude": params.get("latitude"),
             "longitude": params.get("longitude"),
-            "start_date": "2020-01-01",  # Mümkün olduğunca çok veri çekmek için
+            "start_date": "2020-01-01",
             "end_date": pd.to_datetime("today").strftime('%Y-%m-%d'),
-            "hourly": ",".join(params.get("hourly_vars", [])),
+            "hourly": hourly_vars_str, # Düzeltilmiş string'i kullan
             "timezone": "auto"
         }
+        
+        self.logger.info(f"Open-Meteo API'sine istek gönderiliyor: {api_url} with params {api_params}")
 
         response = requests.get(api_url, params=api_params)
+        
+        # API'den gelen hatayı daha detaylı logla
+        if not response.ok:
+            try:
+                error_details = response.json()
+                self.logger.error(f"Open-Meteo API Hatası ({response.status_code}): {error_details}")
+            except Exception:
+                self.logger.error(f"Open-Meteo API Hatası ({response.status_code}): {response.text}")
+
         response.raise_for_status() # HTTP hatası varsa exception fırlat
         
         data = response.json()
@@ -68,11 +86,15 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
     def get_caching_params(self) -> Dict[str, Any]:
         """
         Önbellek anahtarı oluşturmak için hangi parametrelerin önemli olduğunu belirtir.
-        Koordinatlar ve istenen değişkenler değişirse, yeni bir önbellek oluşturulur.
         """
         ds_config = self.config.get("data_sourcing", {})
-        # Değişken listesini sıralayarak tutarlı bir anahtar oluştur
-        sorted_vars = sorted(ds_config.get("hourly_vars", []))
+        
+        # hourly_vars'ın her zaman bir liste olmasını sağla
+        hourly_vars = ds_config.get("hourly_vars", [])
+        if isinstance(hourly_vars, str):
+            hourly_vars = [var.strip() for var in hourly_vars.split(',')]
+            
+        sorted_vars = sorted(hourly_vars)
         caching_params = {
             "latitude": ds_config.get("latitude"),
             "longitude": ds_config.get("longitude"),
@@ -84,8 +106,11 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
     def _get_target_and_feature_cols(self) -> Tuple[str, List[str]]:
         """Modelin hedef değişkenini ve girdi özelliklerini belirtir."""
         target_col = self.config.get("feature_engineering", {}).get("target_col", "temperature_2m")
-        # Bu modelde, tüm indirilen değişkenleri özellik olarak kullanacağız.
+        
         feature_cols = self.config.get("data_sourcing", {}).get("hourly_vars", [])
+        if isinstance(feature_cols, str):
+            feature_cols = [var.strip() for var in feature_cols.split(',')]
+
         self.logger.info(f"'_get_target_and_feature_cols' çağrıldı. Hedef: {target_col}, Özellikler: {feature_cols}")
         return target_col, feature_cols
 
@@ -93,13 +118,19 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         """LSTM ve bir Linear katmandan oluşan modeli oluşturur."""
         self.logger.info(f"'_create_model' çağrıldı. Girdi şekli: {input_shape}")
         
-        # input_shape -> (batch_size, sequence_length, num_features)
         num_features = input_shape[2] 
         hidden_size = self.config.get("model_params", {}).get("hidden_size", 50)
         
         model = Sequential(
             LSTM(input_size=num_features, hidden_size=hidden_size),
-            Linear(hidden_size, 1) # Çıktı boyutu 1, çünkü tek bir değer (sıcaklık) tahmin ediyoruz
+            Linear(hidden_size, 1)
         )
         self.logger.info("LSTM modeli (hava durumu için) başarıyla oluşturuldu.")
         return model
+
+# Eklentinin şemasını ve config'ini sağlayan fonksiyonlar
+def get_form_schema():
+    """UI'da dinamik form oluşturmak için şema (gelecek için)."""
+    # Bu fonksiyon, gelecekteki dinamik UI mimarimiz için bir yer tutucudur.
+    # Şimdilik boş bırakabilir veya temel bir yapı döndürebiliriz.
+    return {"message": "Dynamic schema not yet implemented for this plugin."}
