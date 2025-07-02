@@ -128,9 +128,77 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         self.logger.info("LSTM modeli (hava durumu için) başarıyla oluşturuldu.")
         return model
 
-# Eklentinin şemasını ve config'ini sağlayan fonksiyonlar
-def get_form_schema():
-    """UI'da dinamik form oluşturmak için şema (gelecek için)."""
-    # Bu fonksiyon, gelecekteki dinamik UI mimarimiz için bir yer tutucudur.
-    # Şimdilik boş bırakabilir veya temel bir yapı döndürebiliriz.
-    return {"message": "Dynamic schema not yet implemented for this plugin."}
+def get_form_schema() -> dict:
+    """
+    Bu pipeline için UI formunun nasıl render edileceğini tanımlayan
+    bir JSON şeması döndürür.
+    """
+    return {
+        "groups": [
+            {
+                "id": "data_sourcing",
+                "name": "Veri Kaynağı (Open-Meteo)",
+                "fields": [
+                    {
+                        "id": "latitude",
+                        "path": "data_sourcing.latitude",
+                        "label": "Enlem (Latitude)",
+                        "type": "text",
+                        "placeholder": "Örn: 52.52",
+                        "help_text": "Birden fazla değer virgülle ayrılabilir."
+                    },
+                    {
+                        "id": "longitude",
+                        "path": "data_sourcing.longitude",
+                        "label": "Boylam (Longitude)",
+                        "type": "text",
+                        "placeholder": "Örn: 13.41",
+                        "help_text": "Birden fazla değer virgülle ayrılabilir."
+                    }
+                ]
+            },
+            {
+                "id": "feature_engineering",
+                "name": "Özellik Mühendisliği",
+                "fields": [
+                    {
+                        "id": "target_col",
+                        "path": "feature_engineering.target_col",
+                        "label": "Hedef Değişken",
+                        "type": "select",
+                        "options": [
+                            {"value": "temperature_2m", "label": "Sıcaklık (2m)"},
+                            {"value": "relative_humidity_2m", "label": "Bağıl Nem (2m)"},
+                            {"value": "precipitation", "label": "Yağış"},
+                            {"value": "cloud_cover", "label": "Bulut Örtüsü"}
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "model_params",
+                "name": "Model Parametreleri",
+                "fields": [
+                    { "id": "sequence_length", "path": "model_params.sequence_length", "label": "Sekans Uzunluğu (Saat)", "type": "text", "help_text": "Geçmiş kaç saatlik veri kullanılacak." },
+                    { "id": "hidden_size", "path": "model_params.hidden_size", "label": "Gizli Katman Boyutu", "type": "text" }
+                ]
+            },
+            {
+                "id": "training_params",
+                "name": "Eğitim Parametreleri",
+                "fields": [
+                    { "id": "epochs", "path": "training_params.epochs", "label": "Epoch Sayısı", "type": "text" },
+                    { "id": "lr", "path": "training_params.lr", "label": "Öğrenme Oranı (LR)", "type": "text" },
+                    { "id": "test_size", "path": "training_params.test_size", "label": "Test Seti Boyutu", "type": "text" },
+                    { "id": "validate_every", "path": "training_params.validate_every", "label": "Doğrulama Sıklığı (Epoch)", "type": "text" }
+                ]
+            },
+            {
+                "id": "system",
+                "name": "Sistem Ayarları",
+                "fields": [
+                    { "id": "cache_max_age_hours", "path": "system.cache_max_age_hours", "label": "Önbellek Yaşam Süresi (saat)", "type": "text" }
+                ]
+            }
+        ]
+    }
