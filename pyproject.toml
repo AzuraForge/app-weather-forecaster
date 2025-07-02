@@ -21,8 +21,7 @@ dependencies = [
 [project.entry-points]
 "azuraforge.pipelines" = { weather_forecaster = "azuraforge_weatherapp.pipeline:WeatherForecastPipeline" }
 "azuraforge.configs" = { weather_forecaster = "azuraforge_weatherapp.pipeline:get_default_config" }
-# YENİ ENTRY POINT:
-"azuraforge.schemas" = { weather_forecaster = "azuraforge_weatherapp.pipeline:get_form_schema" }
+
 
 
 [tool.semantic_release]
