@@ -1,0 +1,35 @@
+# app-weather-forecaster/src/azuraforge_weatherapp/config/weather_forecaster_config.yml
+
+pipeline_name: "weather_forecaster"
+
+data_sourcing:
+  # Turkiye, Antalya için koordinatlar
+  latitude: 36.9013
+  longitude: 30.6651
+  # Open-Meteo'dan çekilecek saatlik veriler
+  hourly_vars:
+    - "temperature_2m"
+    - "relative_humidity_2m"
+    - "precipitation"
+    - "cloud_cover"
+
+feature_engineering:
+  # Tahmin edilecek hedef değişkenimiz
+  target_col: "temperature_2m"
+  # Hedef değişkene uygulanacak dönüşüm (opsiyonel)
+  target_col_transform: "none" # "log" veya "none" olabilir
+
+model_params:
+  sequence_length: 168 # Geçmiş 1 hafta (24 * 7) saatlik veriyi kullan
+  hidden_size: 5
+
+training_params:
+  epochs: 50
+  lr: 0.001
+  optimizer: "adam"
+  test_size: 0.2
+  validate_every: 5 # Canlı takip için her 5 epoch'ta bir tahmin grafiğini güncelle
+
+system:
+  caching_enabled: true
+  cache_max_age_hours: 6 # Hava durumu verisi daha sık değişir

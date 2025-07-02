@@ -1,0 +1,34 @@
+# app-weather-forecaster/pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "azuraforge-app-weather-forecaster"
+version = "0.1.0"
+description = "A weather forecasting pipeline application for the AzuraForge platform using Open-Meteo API."
+requires-python = ">=3.10"
+dependencies = [
+    # Çekirdek kütüphanelerimize bağımlılık
+    "azuraforge-learner @ git+https://github.com/AzuraForge/learner.git@main",
+    # Veri çekmek için gerekli kütüphane
+    "requests",
+    # Standart veri işleme kütüphaneleri
+    "pandas",
+    "scikit-learn",
+    "PyYAML",
+    "python-semantic-release"
+]
+
+# === EN KRİTİK BÖLÜM: EKLENTİYİ PLATFORMA TANITMA ===
+[project.entry-points]
+"azuraforge.pipelines" = { weather_forecaster = "azuraforge_weatherapp.pipeline:WeatherForecastPipeline" }
+"azuraforge.configs" = { weather_forecaster = "azuraforge_weatherapp.pipeline:get_default_config" }
+
+[tool.semantic_release]
+branch = "main"
+version_variable = "pyproject.toml:project.version"
+upload_to_pypi = false
+major_on_zero = false
+changelog_file = "CHANGELOG.md"
