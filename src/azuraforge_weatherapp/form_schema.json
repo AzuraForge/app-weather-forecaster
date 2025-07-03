@@ -10,7 +10,7 @@
                     "label": "Enlem (Latitude)",
                     "type": "text",
                     "placeholder": "Örn: 52.52",
-                    "help_text": "Birden fazla değer virgülle ayrılabilir."
+                    "help_text": "Tek bir değer girin."
                 },
                 {
                     "id": "longitude",
@@ -18,7 +18,7 @@
                     "label": "Boylam (Longitude)",
                     "type": "text",
                     "placeholder": "Örn: 13.41",
-                    "help_text": "Birden fazla değer virgülle ayrılabilir."
+                    "help_text": "Tek bir değer girin."
                 }
             ]
         },
@@ -36,7 +36,8 @@
                         {"value": "relative_humidity_2m", "label": "Bağıl Nem (2m)"},
                         {"value": "precipitation", "label": "Yağış"},
                         {"value": "cloud_cover", "label": "Bulut Örtüsü"}
-                    ]
+                    ],
+                    "help_text": "Tahmin edilecek ana meteorolojik değer."
                 }
             ]
         },
@@ -49,13 +50,14 @@
                     "path": "model_params.sequence_length",
                     "label": "Sekans Uzunluğu (Saat)",
                     "type": "text",
-                    "help_text": "Geçmiş kaç saatlik veri kullanılacak."
+                    "help_text": "Geçmiş kaç saatlik veri kullanılacak. Tek bir değer girin."
                 },
                 {
                     "id": "hidden_size",
                     "path": "model_params.hidden_size",
                     "label": "Gizli Katman Boyutu",
-                    "type": "text"
+                    "type": "text",
+                    "help_text": "Hiperparametre optimizasyonu için değerleri virgülle ayırın (örn: 5, 10, 20)."
                 }
             ]
         },
@@ -63,10 +65,34 @@
             "id": "training_params",
             "name": "Eğitim Parametreleri",
             "fields": [
-                { "id": "epochs", "path": "training_params.epochs", "label": "Epoch Sayısı", "type": "text" },
-                { "id": "lr", "path": "training_params.lr", "label": "Öğrenme Oranı (LR)", "type": "text" },
-                { "id": "test_size", "path": "training_params.test_size", "label": "Test Seti Boyutu", "type": "text" },
-                { "id": "validate_every", "path": "training_params.validate_every", "label": "Doğrulama Sıklığı (Epoch)", "type": "text" }
+                { 
+                    "id": "epochs", 
+                    "path": "training_params.epochs", 
+                    "label": "Epoch Sayısı", 
+                    "type": "text",
+                    "help_text": "Tek bir değer girin."
+                },
+                { 
+                    "id": "lr", 
+                    "path": "training_params.lr", 
+                    "label": "Öğrenme Oranı (LR)", 
+                    "type": "text",
+                    "help_text": "Hiperparametre optimizasyonu için değerleri virgülle ayırın (örn: 0.01, 0.001)."
+                },
+                { 
+                    "id": "test_size", 
+                    "path": "training_params.test_size", 
+                    "label": "Test Seti Boyutu", 
+                    "type": "text",
+                    "help_text": "Verinin yüzde kaçının test için ayrılacağı (örn: 0.2)."
+                },
+                { 
+                    "id": "validate_every", 
+                    "path": "training_params.validate_every", 
+                    "label": "Doğrulama Sıklığı (Epoch)", 
+                    "type": "text",
+                    "help_text": "Canlı takip için kaç epoch'ta bir grafik güncelleneceği."
+                }
             ]
         },
         {
