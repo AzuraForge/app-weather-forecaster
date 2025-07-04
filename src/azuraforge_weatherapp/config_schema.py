@@ -1,21 +1,21 @@
 # app-weather-forecaster/src/azuraforge_weatherapp/config_schema.py
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Union, Literal
+from typing import List, Union, Literal, Optional
 
 class DataSourcingConfig(BaseModel):
     latitude: float
     longitude: float
-    # Hem tek bir string hem de string listesi kabul et
     hourly_vars: Union[List[str], str]
+    data_limit: Optional[int] = Field(None, gt=0, description="Limits the data to the last N rows for faster training.")
 
-    # validator, string gelirse onu tek elemanlı listeye çevirir.
     @field_validator('hourly_vars')
     @classmethod
     def convert_str_to_list(cls, v: Union[List[str], str]) -> List[str]:
         if isinstance(v, str):
-            return [item.strip() for item in v.split(',')]
+            return [item.strip() for item in v.split(',') if item.strip()]
         return v
 
+# ... Diğer sınıflar aynı kalıyor ...
 class FeatureEngineeringConfig(BaseModel):
     target_col: str
     target_col_transform: Literal['none', 'log'] = 'none'
