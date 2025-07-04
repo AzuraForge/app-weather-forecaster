@@ -9,8 +9,6 @@ import requests
 from pydantic import BaseModel
 
 from azuraforge_learner import Sequential, LSTM, Linear, TimeSeriesPipeline
-from azuraforge_learner import Sequential, LSTM, Linear
-# YENİ: Kendi konfigürasyon şemamızı import ediyoruz
 from .config_schema import WeatherForecasterConfig
 
 def get_default_config() -> Dict[str, Any]:
@@ -26,7 +24,6 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
     """
     Open-Meteo API'sinden alınan hava durumu verileriyle tahmin yapar.
     """
-    # YENİ: get_config_model metodunu implemente ediyoruz
     def get_config_model(self) -> type[BaseModel]:
         return WeatherForecasterConfig
 
@@ -35,12 +32,17 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         self.logger.info("WeatherForecastPipeline (Eklenti) başarıyla başlatıldı.")
 
     def _load_data_from_source(self) -> pd.DataFrame:
+        """
+        Veriyi Open-Meteo API'sinden çeker, ön işler ve eksik verileri doldurur.
+        """
         params = self.config.get("data_sourcing", {})
         self.logger.info(f"'_load_data_from_source' çağrıldı. Parametreler: {params}")
 
-        # Pydantic validator sayesinde 'hourly_vars' artık her zaman bir liste.
-        hourly_vars_list = params.get("hourly_vars", [])
-        hourly_vars_str = ",".join(hourly_vars_list)
+        # === KRİTİK DÜZELTME BAŞLANGICI: Hedef sütunu her zaman dahil et ===
+        # _get_target_and_feature_cols'tan gelen birleştirilmiş listeyi kullanıyoruz.
+        _, all_required_vars = self._get_target_and_feature_cols()
+        hourly_vars_str = ",".join(all_required_vars)
+        # === KRİTİK DÜZELTME SONU ===
         
         api_url = "https://archive-api.open-meteo.com/v1/archive"
         api_params = {
@@ -52,7 +54,6 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
             "timezone": "auto"
         }
         
-        # ... (metodun geri kalanı aynı) ...
         self.logger.info(f"Open-Meteo API'sine istek gönderiliyor: {api_url} with params {api_params}")
         response = requests.get(api_url, params=api_params)
         response.raise_for_status()
@@ -60,27 +61,49 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         df = pd.DataFrame(data['hourly'])
         df['time'] = pd.to_datetime(df['time'])
         df.set_index('time', inplace=True)
+        
         if df.empty:
             raise ValueError("Open-Meteo API'sinden veri indirilemedi.")
-        self.logger.info(f"{len(df)} satır hava durumu verisi indirildi.")
+            
+        # === KRİTİK DÜZELTME BAŞLANGICI: NaN (Not-a-Number) hatasını önle ===
+        # API'den gelen verilerde olası boşlukları dolduruyoruz.
+        # 'ffill' (forward-fill) metodu, bir önceki geçerli değeri kullanarak boşluğu doldurur.
+        df.fillna(method='ffill', inplace=True)
+        # Eğer ilk satırlarda hala NaN varsa, 'bfill' (backward-fill) ile doldur.
+        df.fillna(method='bfill', inplace=True)
+        # === KRİTİK DÜZELTME SONU ===
+
+        self.logger.info(f"{len(df)} satır hava durumu verisi indirildi ve işlendi.")
         return df
 
     def get_caching_params(self) -> Dict[str, Any]:
         ds_config = self.config.get("data_sourcing", {})
-        # Pydantic validator sayesinde 'hourly_vars' artık her zaman bir liste.
-        hourly_vars = sorted(ds_config.get("hourly_vars", []))
+        # _get_target_and_feature_cols'u kullanarak tüm gerekli değişkenleri al
+        _, all_required_vars = self._get_target_and_feature_cols()
         caching_params = {
             "latitude": ds_config.get("latitude"),
             "longitude": ds_config.get("longitude"),
-            "hourly_vars": ",".join(hourly_vars)
+            "hourly_vars": ",".join(sorted(all_required_vars))
         }
         self.logger.info(f"'get_caching_params' çağrıldı. Cache anahtar parametreleri: {caching_params}")
         return caching_params
 
     def _get_target_and_feature_cols(self) -> Tuple[str, List[str]]:
+        """
+        Hedef ve özellik sütunlarını belirler. Hedef sütunun özellikler
+        listesinde yer almasını garanti eder.
+        """
         target_col = self.config.get("feature_engineering", {}).get("target_col", "temperature_2m")
-        # Pydantic validator sayesinde 'hourly_vars' artık her zaman bir liste.
-        feature_cols = self.config.get("data_sourcing", {}).get("hourly_vars", [])
+        feature_cols_from_config = self.config.get("data_sourcing", {}).get("hourly_vars", [])
+        
+        # === KRİTİK DÜZELTME BAŞLANGICI ===
+        # Hedef sütunun özellik listesinde olduğundan emin ol.
+        # Set kullanarak kopyaları otomatik olarak engelliyoruz.
+        all_cols = set(feature_cols_from_config)
+        all_cols.add(target_col)
+        feature_cols = sorted(list(all_cols))
+        # === KRİTİK DÜZELTME SONU ===
+        
         self.logger.info(f"'_get_target_and_feature_cols' çağrıldı. Hedef: {target_col}, Özellikler: {feature_cols}")
         return target_col, feature_cols
 
