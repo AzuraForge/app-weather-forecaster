@@ -12,15 +12,15 @@ class FeatureEngineeringConfig(BaseModel):
     target_col_transform: Literal['log', 'none'] = 'none'
 
 class ModelParamsConfig(BaseModel):
-    sequence_length: int = Field(gt=0)
-    hidden_size: int = Field(gt=0)
+    sequence_length: int = Field(..., gt=0)
+    hidden_size: int = Field(..., gt=0)
 
 class TrainingParamsConfig(BaseModel):
-    epochs: int = Field(gt=0)
-    lr: float = Field(gt=0)
+    epochs: int = Field(..., gt=0)
+    lr: float = Field(..., gt=0)
     optimizer: Literal['adam', 'sgd'] = 'adam'
-    test_size: float = Field(gt=0, lt=1)
-    validate_every: int = Field(gt=0)
+    test_size: float = Field(..., gt=0, lt=1)
+    validate_every: int = Field(..., gt=0)
 
 class SystemConfig(BaseModel):
     caching_enabled: bool = True
@@ -36,4 +36,7 @@ class WeatherForecasterConfig(BaseModel):
     system: SystemConfig
 
     class Config:
-        extra = 'forbid' # Sadece tanımlı alanlara izin ver
+        # Pydantic'e, modelde tanımlanmayan ekstra alanları
+        # (experiment_id, task_id gibi) görmezden gelmesini söylüyoruz.
+        # Bu, 'forbid' yerine daha esnek bir yaklaşımdır.
+        extra = 'ignore'

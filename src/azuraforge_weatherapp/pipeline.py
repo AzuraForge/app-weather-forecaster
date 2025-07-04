@@ -8,10 +8,10 @@ import pandas as pd
 import requests
 from pydantic import BaseModel
 
-from azuraforge_learner.pipelines import TimeSeriesPipeline
+from azuraforge_learner.pipelines.timeseries import TimeSeriesPipeline
 from azuraforge_learner import Sequential, LSTM, Linear
 
-# YENİ: Kendi config şemamızı import ediyoruz
+# Yeni oluşturduğumuz config şemasını import ediyoruz.
 from .config_schema import WeatherForecasterConfig
 
 def get_default_config() -> Dict[str, Any]:
@@ -54,15 +54,8 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
             "timezone": "auto"
         }
         
-        self.logger.info(f"Requesting Open-Meteo API with params: {api_params}")
         response = requests.get(api_url, params=api_params)
-        
-        if not response.ok:
-            error_details = response.text
-            try: error_details = response.json()
-            except Exception: pass
-            self.logger.error(f"Open-Meteo API Error ({response.status_code}): {error_details}")
-            response.raise_for_status()
+        response.raise_for_status()
         
         data = response.json()
         df = pd.DataFrame(data['hourly'])
@@ -79,26 +72,27 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         ds_config = self.config.get("data_sourcing", {})
         hourly_vars = ds_config.get("hourly_vars", [])
         sorted_vars = sorted(hourly_vars)
-        caching_params = {
+        return {
             "latitude": ds_config.get("latitude"),
             "longitude": ds_config.get("longitude"),
             "hourly_vars": ",".join(sorted_vars)
         }
-        return caching_params
 
     def _get_target_and_feature_cols(self) -> Tuple[str, List[str]]:
         target_col = self.config.get("feature_engineering", {}).get("target_col", "temperature_2m")
+        # Bu pipeline'da, tüm 'hourly_vars' özellik olarak kullanılır.
         feature_cols = self.config.get("data_sourcing", {}).get("hourly_vars", [])
         return target_col, feature_cols
 
     def _create_model(self, input_shape: Tuple) -> Sequential:
         self.logger.info(f"'_create_model' called. Input shape: {input_shape}")
+        # Girdi şekli (batch, seq_len, features)
         input_size = input_shape[2] 
         hidden_size = self.config.get("model_params", {}).get("hidden_size", 50)
         
         model = Sequential(
             LSTM(input_size=input_size, hidden_size=hidden_size),
-            Linear(hidden_size, 1)
+            Linear(hidden_size, 1) # Çıktı tek bir değer (tahmin)
         )
         self.logger.info("LSTM model for weather created successfully.")
         return model
