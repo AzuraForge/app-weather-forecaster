@@ -8,7 +8,6 @@ import pandas as pd
 import requests
 from pydantic import BaseModel
 
-# DİKKAT: Artık learner'ın içindeki pipelines paketinden import ediyoruz.
 from azuraforge_learner.pipelines.timeseries import TimeSeriesPipeline
 from azuraforge_learner import Sequential, LSTM, Linear
 
@@ -57,7 +56,6 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
             "timezone": "auto"
         }
         
-        self.logger.info(f"Requesting Open-Meteo API with params: {api_params}")
         response = requests.get(api_url, params=api_params)
         
         if not response.ok:
@@ -95,15 +93,12 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
 
     def _create_model(self, input_shape: Tuple) -> Sequential:
         self.logger.info(f"'_create_model' called. Input shape: {input_shape}")
-        # Girdi şekli (batch, seq_len, features)
-        # TimeSeriesPipeline'in yeni halinde özellikler de sekansa dahil edilebilir.
-        # Bu yüzden input_size'ı dinamik olarak alıyoruz.
         input_size = input_shape[2] 
         hidden_size = self.config.get("model_params", {}).get("hidden_size", 50)
         
         model = Sequential(
             LSTM(input_size=input_size, hidden_size=hidden_size),
-            Linear(hidden_size, 1) # Çıktı tek bir değer (tahmin)
+            Linear(hidden_size, 1)
         )
         self.logger.info("LSTM model for weather created successfully.")
         return model

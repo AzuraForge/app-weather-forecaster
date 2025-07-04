@@ -36,6 +36,5 @@ class WeatherForecasterConfig(BaseModel):
     system: SystemConfig
 
     class Config:
-        # Pydantic'e, modelde tanımlanmayan ekstra alanları
-        # (experiment_id, task_id gibi) görmezden gelmesini söylüyoruz.
-        extra = 'ignore'
+        # Pydantic'e, modelde tanımlanmayan ekstra alanları görmezden gelmesini söylüyoruz.
+        extra = 'ignore' 
