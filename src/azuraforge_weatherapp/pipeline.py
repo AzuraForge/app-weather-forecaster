@@ -11,6 +11,9 @@ from pydantic import BaseModel
 from azuraforge_learner.pipelines import TimeSeriesPipeline
 from azuraforge_learner import Sequential, LSTM, Linear
 
+# YENİ: Kendi config şemamızı import ediyoruz
+from .config_schema import WeatherForecasterConfig
+
 def get_default_config() -> Dict[str, Any]:
     """Eklentinin varsayılan YAML konfigürasyonunu yükler."""
     try:
@@ -28,26 +31,17 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         super().__init__(config)
         self.logger.info("WeatherForecastPipeline (Plugin) initialized successfully.")
     
+    # === KRİTİK DÜZELTME: Soyut metodu doğru şekilde implemente ediyoruz ===
     def get_config_model(self) -> Optional[type[BaseModel]]:
-        """
-        Bu pipeline için Pydantic konfigürasyon modelini döndürür.
-        Basitlik adına, şimdilik herhangi bir ekstra doğrulama yapmıyoruz.
-        """
-        # Daha karmaşık doğrulamalar için buraya özel bir Pydantic modeli eklenebilir.
-        return None
+        """Bu pipeline için Pydantic konfigürasyon modelini döndürür."""
+        return WeatherForecasterConfig
 
     def _load_data_from_source(self) -> pd.DataFrame:
         """Open-Meteo API'sinden geçmiş hava durumu verilerini çeker."""
         params = self.config.get("data_sourcing", {})
-        self.logger.info(f"'_load_data_from_source' called. Params: {params}")
+        self.logger.info(f"'_load_data_from_source' called with params: {params}")
 
         hourly_vars = params.get("hourly_vars", [])
-        if isinstance(hourly_vars, str):
-            hourly_vars = [var.strip() for var in hourly_vars.split(',')]
-        
-        if not hourly_vars:
-            raise ValueError("No hourly variables specified in data_sourcing config.")
-            
         hourly_vars_str = ",".join(hourly_vars)
         
         api_url = "https://archive-api.open-meteo.com/v1/archive"
@@ -62,7 +56,13 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         
         self.logger.info(f"Requesting Open-Meteo API with params: {api_params}")
         response = requests.get(api_url, params=api_params)
-        response.raise_for_status()
+        
+        if not response.ok:
+            error_details = response.text
+            try: error_details = response.json()
+            except Exception: pass
+            self.logger.error(f"Open-Meteo API Error ({response.status_code}): {error_details}")
+            response.raise_for_status()
         
         data = response.json()
         df = pd.DataFrame(data['hourly'])
@@ -76,37 +76,23 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         return df
 
     def get_caching_params(self) -> Dict[str, Any]:
-        """Önbellek anahtarı oluşturmak için kullanılacak parametreleri belirtir."""
         ds_config = self.config.get("data_sourcing", {})
         hourly_vars = ds_config.get("hourly_vars", [])
-        if isinstance(hourly_vars, str):
-            hourly_vars = [var.strip() for var in hourly_vars.split(',')]
-            
         sorted_vars = sorted(hourly_vars)
         caching_params = {
             "latitude": ds_config.get("latitude"),
             "longitude": ds_config.get("longitude"),
             "hourly_vars": ",".join(sorted_vars)
         }
-        self.logger.info(f"'get_caching_params' called. Cache key params: {caching_params}")
         return caching_params
 
     def _get_target_and_feature_cols(self) -> Tuple[str, List[str]]:
-        """Modelin hedef değişkenini ve girdi özelliklerini belirtir."""
         target_col = self.config.get("feature_engineering", {}).get("target_col", "temperature_2m")
         feature_cols = self.config.get("data_sourcing", {}).get("hourly_vars", [])
-        if isinstance(feature_cols, str):
-            feature_cols = [var.strip() for var in feature_cols.split(',')]
-        
-        self.logger.info(f"'_get_target_and_feature_cols' called. Target: {target_col}, Features: {feature_cols}")
         return target_col, feature_cols
 
     def _create_model(self, input_shape: Tuple) -> Sequential:
-        """LSTM ve bir Linear katmandan oluşan modeli oluşturur."""
         self.logger.info(f"'_create_model' called. Input shape: {input_shape}")
-        
-        # Bu pipeline'da tek bir değişken (target) ile sekans oluşturduğumuz için
-        # input_size her zaman 1 olacaktır.
         input_size = input_shape[2] 
         hidden_size = self.config.get("model_params", {}).get("hidden_size", 50)
         
