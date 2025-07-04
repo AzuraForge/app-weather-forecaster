@@ -7,7 +7,8 @@ from importlib import resources
 import pandas as pd
 import requests
 
-from azuraforge_learner import Sequential, LSTM, Linear, TimeSeriesPipeline
+from azuraforge_learner.pipelines import TimeSeriesPipeline
+from azuraforge_learner import Sequential, LSTM, Linear
 
 # --- Varsayılan Konfigürasyonu Yükleme Fonksiyonu ---
 def get_default_config() -> Dict[str, Any]:
