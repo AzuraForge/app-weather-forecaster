@@ -8,6 +8,7 @@ import pandas as pd
 import requests
 from pydantic import BaseModel
 
+# DİKKAT: Artık learner'ın içindeki pipelines paketinden import ediyoruz.
 from azuraforge_learner.pipelines.timeseries import TimeSeriesPipeline
 from azuraforge_learner import Sequential, LSTM, Linear
 
@@ -42,6 +43,8 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         self.logger.info(f"'_load_data_from_source' called with params: {params}")
 
         hourly_vars = params.get("hourly_vars", [])
+        if not hourly_vars:
+            raise ValueError("No hourly variables specified in data_sourcing config.")
         hourly_vars_str = ",".join(hourly_vars)
         
         api_url = "https://archive-api.open-meteo.com/v1/archive"
@@ -54,8 +57,15 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
             "timezone": "auto"
         }
         
+        self.logger.info(f"Requesting Open-Meteo API with params: {api_params}")
         response = requests.get(api_url, params=api_params)
-        response.raise_for_status()
+        
+        if not response.ok:
+            error_details = response.text
+            try: error_details = response.json()
+            except Exception: pass
+            self.logger.error(f"Open-Meteo API Error ({response.status_code}): {error_details}")
+            response.raise_for_status()
         
         data = response.json()
         df = pd.DataFrame(data['hourly'])
@@ -80,13 +90,14 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
 
     def _get_target_and_feature_cols(self) -> Tuple[str, List[str]]:
         target_col = self.config.get("feature_engineering", {}).get("target_col", "temperature_2m")
-        # Bu pipeline'da, tüm 'hourly_vars' özellik olarak kullanılır.
         feature_cols = self.config.get("data_sourcing", {}).get("hourly_vars", [])
         return target_col, feature_cols
 
     def _create_model(self, input_shape: Tuple) -> Sequential:
         self.logger.info(f"'_create_model' called. Input shape: {input_shape}")
         # Girdi şekli (batch, seq_len, features)
+        # TimeSeriesPipeline'in yeni halinde özellikler de sekansa dahil edilebilir.
+        # Bu yüzden input_size'ı dinamik olarak alıyoruz.
         input_size = input_shape[2] 
         hidden_size = self.config.get("model_params", {}).get("hidden_size", 50)
         
