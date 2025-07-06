@@ -94,14 +94,20 @@ class WeatherForecastPipeline(TimeSeriesPipeline):
         listesinde yer almasını garanti eder.
         """
         target_col = self.config.get("feature_engineering", {}).get("target_col", "temperature_2m")
-        feature_cols_from_config = self.config.get("data_sourcing", {}).get("hourly_vars", [])
         
+        # Gelen konfigte string veya liste olabilir, her ikisini de handle et
+        feature_cols_from_config_raw = self.config.get("data_sourcing", {}).get("hourly_vars", [])
+        if isinstance(feature_cols_from_config_raw, str):
+            feature_cols_from_config = [item.strip() for item in feature_cols_from_config_raw.split(',') if item.strip()]
+        else:
+            feature_cols_from_config = feature_cols_from_config_raw
+
         # === KRİTİK DÜZELTME BAŞLANGICI ===
         # Hedef sütunun özellik listesinde olduğundan emin ol.
-        # Set kullanarak kopyaları otomatik olarak engelliyoruz.
+        # Set kullanarak kopyaları otomatik olarak engelliyoruz ve sonra sıralıyoruz.
         all_cols = set(feature_cols_from_config)
         all_cols.add(target_col)
-        feature_cols = sorted(list(all_cols))
+        feature_cols = sorted(list(all_cols)) # <--- Sıralama eklendi
         # === KRİTİK DÜZELTME SONU ===
         
         self.logger.info(f"'_get_target_and_feature_cols' çağrıldı. Hedef: {target_col}, Özellikler: {feature_cols}")
