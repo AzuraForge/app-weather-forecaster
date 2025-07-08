@@ -1,6 +1,7 @@
 # ========== DOSYA: app-weather-forecaster/src/azuraforge_weatherapp/config/weather_forecaster_config.yml ==========
 # Bu, bu eklenti için "altın standart" varsayılan konfigürasyondur.
-# "Kutudan çıktığı gibi" iyi sonuçlar vermesi hedeflenmiştir.
+# Hem yapısal olarak sağlıklı (düşük bias) hem de metrik olarak
+# yüksek performanslı (R² > 0.90) sonuçlar üretmesi hedeflenmiştir.
 
 pipeline_name: "weather_forecaster"
 
@@ -11,8 +12,6 @@ data_sourcing:
     - "relative_humidity_2m"
     - "precipitation"
     - "cloud_cover"
-  # Varsayılan olarak son 1 yıllık (~8760 satır) veriyi kullan.
-  # Hızlı testler için bu değer `run_isolated.py` ile değiştirilebilir.
   data_limit: 8760
 
 feature_engineering:
@@ -20,16 +19,16 @@ feature_engineering:
   target_col_transform: "none"
 
 model_params:
-  sequence_length: 168  # 7 günlük geçmişe bak
-  hidden_size: 64       # Yüksek kapasiteli model
+  sequence_length: 168
+  hidden_size: 128      # <-- YENİ NİHAİ DEĞER
 
 training_params:
-  epochs: 30            # Yeterli eğitim süresi
+  epochs: 50            # <-- YENİ NİHAİ DEĞER
   lr: 0.001
   optimizer: "adam"
   test_size: 0.2
   validate_every: 5
-  batch_size: 32        # VRAM dostu yığın boyutu
+  batch_size: 32
 
 system:
   caching_enabled: true
