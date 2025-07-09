@@ -26,17 +26,27 @@ Bu eklenti, tüm AzuraForge platformunu (`Docker`) çalıştırmadan, tamamen ba
 1.  Ana platformun **[Geliştirme Rehberi](https://github.com/AzuraForge/platform/blob/main/docs/DEVELOPMENT_GUIDE.md)**'ne göre Python sanal ortamınızın kurulu ve aktif olduğundan emin olun.
 2.  Bu reponun kök dizininde olduğunuzdan emin olun.
 
-### Testi Çalıştırma
-
+### Testi Çalıştırma (CPU üzerinde)
 Aşağıdaki komut, pipeline'ı varsayılan (ve yüksek performanslı) ayarlarla çalıştıracaktır:
 ```bash
 python tools/run_isolated.py
 ```
 
 ### Parametreleri Değiştirerek Test Etme
-
 Farklı hiperparametreleri denemek için komut satırı argümanlarını kullanabilirsiniz. Örneğin, `hidden_size`'ı 128 yapmak ve sadece 10 epoch eğitmek için:
 ```bash
 python tools/run_isolated.py --hidden-size 128 --epochs 10 --batch-size 16
 ```
-Bu komut, varsayılan konfigürasyonu bu argümanlarla geçersiz kılarak deneyi çalıştırır.
+
+### Testi Çalıştırma (GPU üzerinde)
+Eğer sisteminizde uyumlu bir NVIDIA GPU ve CUDA kurulu ise, eğitimi GPU üzerinde çalıştırmak için `AZURAFORGE_DEVICE` ortam değişkenini ayarlayabilirsiniz. Bu, eğitim sürecini önemli ölçüde hızlandıracaktır.
+
+**Windows (PowerShell):**
+```powershell
+$env:AZURAFORGE_DEVICE="gpu"; python tools/run_isolated.py
+```
+
+**Linux / macOS / WSL:**
+```bash
+AZURAFORGE_DEVICE=gpu python tools/run_isolated.py
+```
